@@ -53,6 +53,8 @@ Read these before starting:
    Never claim a render is done without looking at stills of it.
 
 ## Workflow
+> **Hard stop (Sagar's process):** (1) ask/confirm the brief → (2) give the concept + voiceover script → (3) Sagar confirms or rewrites the script and how many humans/voices → (4) agree the final script → (5) Sagar sends the voiceover files → (6) only then build and render. Never render a reel before step 5. Steps 1–4 happen in chat, not in a rendered video.
+
 1. **Research.** `curl -sL https://buildingshop.in/products/<handle>.json`: title, body_html, variants with prices, images. Download the images, make a contact sheet, and look at it. The Amazon links he sends are the same products. Use the buildingshop.in JSON for facts.
 2. **Pick a director.** Read `used.md`. Choose one from the roster below that is not in the last 5 rows and differs on every column from the previous row. Fit it to the product's pain point and its most satisfying visual moment.
 3. **Director brief** (short card in chat):
