@@ -1,3 +1,5 @@
 sticky-traps/out/still_*.png
 sticky-traps/out/preview_*.png
 __pycache__/
+fibre-mesh/out/still_*.png
+fibre-mesh/out/*.mp4.part

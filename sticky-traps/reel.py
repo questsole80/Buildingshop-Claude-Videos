@@ -698,8 +698,17 @@ def draw_person(cv, x, y, u, t, P, arm_r=(0.25, 0.2), arm_l=(-0.25, -0.2), talk=
         tb.cubicTo(-hw * 1.3, -hh * 1.6, hw * 1.3, -hh * 1.6, hw * 1.12, -hh * 0.25)
         tb.quadTo(0, -hh * 0.45, -hw * 1.12, -hh * 0.25)
         tb.close()
-        cel(cv, tb, P["turban"], P["turban_sh"], rim=(255, 220, 160))
-        for k in range(3):
+        if P.get("helmet"):  # safety helmet: smooth dome + brim, no wraps
+            tb = skia.Path()
+            tb.moveTo(-hw * 1.12, -hh * 0.3)
+            tb.cubicTo(-hw * 1.2, -hh * 1.55, hw * 1.2, -hh * 1.55, hw * 1.12, -hh * 0.3)
+            tb.close()
+            cel(cv, tb, P["turban"], P["turban_sh"], rim=(255, 240, 180))
+            cv.drawRRect(rrect(-hw * 1.32, -hh * 0.38, hw * 2.64, hh * 0.16, hh * 0.08), fill(P["turban_sh"]))
+            cv.drawLine(0, -hh * 1.2, 0, -hh * 0.4, stroke(P["turban_sh"], u * 0.05, 200))
+        else:
+            cel(cv, tb, P["turban"], P["turban_sh"], rim=(255, 220, 160))
+        for k in range(0 if P.get("helmet") else 3):
             fo = skia.Path()
             fo.moveTo(-hw * 1.05, -hh * (0.45 + k * 0.25))
             fo.quadTo(0, -hh * (0.75 + k * 0.32), hw * 1.05, -hh * (0.35 + k * 0.28))
