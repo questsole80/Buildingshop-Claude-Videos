@@ -45,6 +45,15 @@ def plate(name):
     return _IMG[name]
 
 
+_PF = {}
+
+
+def plate_file(p):
+    if p not in _PF:
+        _PF[p] = skia.Image.MakeFromEncoded(skia.Data.MakeFromFileName(p)) if os.path.exists(p) else None
+    return _PF[p]
+
+
 def shot(cv, name, lt, dur, move="push", fx=0.5, fy=0.5, amt=0.10, grade=None, rect=None):
     """Draw a plate cover-fit with a camera move. Returns False if the plate is missing."""
     img = plate(name)
@@ -179,6 +188,25 @@ def s_product(cv, lt, t):
     p = fill((255, 255, 255), 45, blur=30)
     p.setBlendMode(skia.BlendMode.kScreen)
     cv.drawPath(sw, p)
+    # the real product (listing photo) pops in as a clean card on "BuildingShop"
+    k = (t - WT(6, "BuildingShop") + 0.1) / 0.45
+    prod = plate_file(os.path.join(HERE, "product", "listing_1.jpg"))
+    if k > 0 and prod is not None:
+        s = bout(k)
+        cv.save()
+        cv.translate(800, 560)
+        cv.scale(s, s)
+        cv.rotate(4)
+        cv.drawRRect(rrect(-175, -175, 350, 350, 26), fill((0, 0, 0), 110, blur=18))
+        cv.drawRRect(rrect(-180, -185, 360, 360, 26), fill((255, 255, 255)))
+        cv.save()
+        cv.clipRRect(rrect(-170, -175, 340, 340, 20), doAntiAlias=True)
+        sc = 340 / min(prod.width(), prod.height())
+        cv.translate(-prod.width() * sc / 2, -prod.height() * sc / 2 - 5)
+        cv.scale(sc, sc)
+        cv.drawImage(prod, 0, 0, skia.SamplingOptions(skia.CubicResampler.Mitchell()))
+        cv.restore()
+        cv.restore()
     lower_third(cv, t, WT(6, "BuildingShop") - 0.1, "FIBERGLASS MESH", "BuildingShop", y=1180, col=M.hexc("#1565C0"))
     spec_chip(cv, t, WT(6, "145"), "145 GSM", 90, 420)
     spec_chip(cv, t, WT(6, "24"), "24 inch wide", 90, 540)
