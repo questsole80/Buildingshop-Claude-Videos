@@ -817,7 +817,7 @@ def letterbox(cv, k=1.0):
     cv.drawRect(skia.Rect(0, 0, W, bh), fill((0, 0, 0)))
 
 
-def lower_third(cv, t, t0, title, sub, y=1180, x=70):
+def lower_third(cv, t, t0, title, sub, y=1180, x=100):
     a = ease((t - t0) / 0.5) * (1 - ease((t - t0 - 2.8) / 0.4))
     if a <= 0:
         return
@@ -871,7 +871,77 @@ def captions(cv, t):
 
 
 def corner_mark(cv):
-    text(cv, "buildingshop.in", W - 40, 205, "sans", 28, (255, 255, 255), 170, anchor="r", shadow=4)
+    text(cv, "buildingshop.in", W - 80, 120, "sans", 28, (255, 255, 255), 190, anchor="r", shadow=4)
+
+
+# BuildingShop Instagram signature frame: yellow band, wavy black inner edge, blue water-drop pattern
+BORDER_BAND = 52
+
+
+def _wavy_inner_path(inset, amp=11.0, wl=58.0):
+    x0, y0, x1, y1 = inset, inset, W - inset, H - inset
+    per = 2 * ((x1 - x0) + (y1 - y0))
+    n = int(per / 3)
+    p = skia.Path()
+    for i in range(n + 1):
+        s = per * i / n
+        if s < x1 - x0:                       # top edge, left -> right
+            x, y, nx, ny = x0 + s, y0, 0, 1
+        elif s < (x1 - x0) + (y1 - y0):       # right edge, top -> bottom
+            x, y, nx, ny = x1, y0 + s - (x1 - x0), -1, 0
+        elif s < 2 * (x1 - x0) + (y1 - y0):   # bottom edge, right -> left
+            x, y, nx, ny = x1 - (s - (x1 - x0) - (y1 - y0)), y1, 0, -1
+        else:                                 # left edge, bottom -> top
+            x, y, nx, ny = x0, y1 - (s - 2 * (x1 - x0) - (y1 - y0)), 1, 0
+        off = amp * abs(math.sin(math.pi * s / wl)) - amp * 0.5   # scalloped edge
+        px, py = x + nx * off, y + ny * off
+        if i == 0:
+            p.moveTo(px, py)
+        else:
+            p.lineTo(px, py)
+    p.close()
+    return p
+
+
+_BORDER_PATH = None
+
+
+def draw_border(cv):
+    global _BORDER_PATH
+    if _BORDER_PATH is None:
+        inner = _wavy_inner_path(BORDER_BAND)
+        band = skia.Path()
+        band.addRect(skia.Rect(0, 0, W, H))
+        band.addPath(inner)
+        band.setFillType(skia.PathFillType.kEvenOdd)
+        _BORDER_PATH = (band, inner)
+    band, inner = _BORDER_PATH
+    cv.drawPath(inner, stroke((0, 0, 0), 14, 60))          # soft inner shadow on the picture
+    cv.drawPath(band, fill(hexc("#F7C531")))
+    cv.drawPath(inner, stroke((20, 20, 20), 6))
+    # water-drop pattern along the band
+    d = BORDER_BAND * 0.42
+    step = 64
+    for side in range(4):
+        L_ = W if side % 2 == 0 else H
+        for k in range(int(L_ / step) + 1):
+            s = k * step + step / 2
+            if side == 0:
+                x, y = s, d
+            elif side == 1:
+                x, y = W - d, s
+            elif side == 2:
+                x, y = W - s, H - d
+            else:
+                x, y = d, H - s
+            if not (0 < x < W and 0 < y < H):
+                continue
+            dp = skia.Path()
+            r = 7.0
+            dp.moveTo(x, y - r * 1.9)
+            dp.cubicTo(x + r * 1.1, y - r * 0.4, x + r, y + r, x, y + r)
+            dp.cubicTo(x - r, y + r, x - r * 1.1, y - r * 0.4, x, y - r * 1.9)
+            cv.drawPath(dp, fill(hexc("#1E7FD8")))
 
 
 # ------------------------------------------------------------------ scenes
@@ -1261,10 +1331,15 @@ def render_frame(t, arr=None, overlays=True):
         film_finish(cv, t)
         if not overlays:
             return arr
-        letterbox(cv)
+        if not AMAZON:
+            pass  # Instagram reel: signature wavy frame instead of the letterbox bar
+        else:
+            letterbox(cv)
         captions(cv, t)
         if t < STUCK_T:
             corner_mark(cv)
+    if overlays and not AMAZON:
+        draw_border(cv)
     return arr
 
 

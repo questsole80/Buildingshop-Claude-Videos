@@ -22,7 +22,6 @@ Read these before starting:
    - a spec-list voiceover ("200–250 GSM aapko help karega…")
    - the same feature-montage order
    - the stock end card (logo + "available on BuildingShop.in" + price + ORDER NOW tap)
-   - the yellow wavy frame on every video
    Each may appear only if this director's style calls for it, and never in two consecutive videos.
 2. **Different every time:**
    - emotion and genre
@@ -89,6 +88,9 @@ Read these before starting:
 - Reuse the reel's VO and scenes; compose 1920×1080 with the story panel on the left + word-synced motion graphics on the right (see `sticky-traps/amazon16x9.py`).
 - **Never** show or say a website/URL or anything that sends buyers off Amazon. Cut those VO lines even if the reel has them, and tell Sagar.
 - No letterbox/black bars, no black frames at start/end, product visible in the first 1–2 s, no price/discount/CTA/reviews/"best", claims only from the listing, captions always on, ≤45 s, −14 LUFS.
+
+## Instagram signature frame (Sagar, 2026-10-13: mandatory on every 9:16 reel)
+Every 9:16 reel gets the BuildingShop frame so the Instagram grid looks consistent: a yellow band (#F7C531, ~52 px) on all four sides, a wavy/scalloped black inner edge (~6 px), and small blue water drops (#1E7FD8) along the band. Use `draw_border()` in `sticky-traps/reel.py`. Drop letterbox bars when the frame is on; keep text ≥100 px from the edges. Never use it on the Amazon 16:9 cut.
 
 ## Director roster
 | # | Director | Emotion / genre | Signature look & motion | Voice setup | Typical ending |
