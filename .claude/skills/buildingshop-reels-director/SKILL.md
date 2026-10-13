@@ -77,6 +77,14 @@ Read these before starting:
 6. **Check.** Look at a stills contact sheet at full size: character quality, product accuracy, safe zones, nothing clipped, text not colliding with captions. Fix, then do the full render.
 7. **Deliver:** upload copy, a summary of what plays, the post pack, then append to `used.md`.
 
+## Script format (Sagar's template, use exactly)
+- Header: `Voiceover: N voices, one mp3 per voice`
+- One settings line for all voices (default: Eleven Multilingual v2, Speed 1.15, Stability 30–35%, Similarity 75%, Style 60%, Speaker Boost on; adjust per director)
+- Per voice: `Voice k: NAME. <one-line casting>` then `Save as \`name.mp3\`:` then ONE fenced block
+- Lines in **Devanagari Hindi**, with English product/tech words in Latin script (e.g. "floor", "waterproof", "GSM")
+- `<break time="1.0s" />` between lines, all on one block per voice
+- Send this and STOP. Wait for his edits and the mp3s.
+
 ## Director roster
 | # | Director | Emotion / genre | Signature look & motion | Voice setup | Typical ending |
 |---|---|---|---|---|---|
