@@ -15,28 +15,95 @@ import skia
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(HERE, "out")
 W, H, FPS = 1080, 1920, 30
+W_ = W
 
 # ------------------------------------------------------------------ script / timeline
 # (start, end, speaker, text)  — estimated until real VO is in
-LINES = [
-    (0.15, 3.4, "NARRATOR", "Shhh… dekhiye. Yeh hai whitefly."),
-    (3.5, 7.4, "NARRATOR", "Chhota sa… par poore plant ka ras choos leta hai."),
-    (7.6, 10.3, "MEERA", "Arre! Mere tamatar ke patte phir se peele!"),
-    (10.5, 13.9, "NARRATOR", "Par jungle ka ek niyam hai… kuch rang inse bardasht nahi hote."),
-    (14.0, 16.0, "NARRATOR", "Peela. Aur neela."),
-    (16.2, 19.4, "MEERA", "Bas film utaaro, aur plant ke thoda upar latka do."),
-    (19.6, 23.3, "NARRATOR", "Aur phir… shikari khud shikaar ban jaata hai."),
-    (23.5, 27.5, "RAJU KAKA", "Khet mein bhi lagaye… thrips aur aphids, sab chipak gaye!"),
-    (27.7, 31.9, "NARRATOR", "Dono taraf sticky. Waterproof. Non-toxic. Indoor ho ya outdoor."),
-    (32.1, 36.2, "NARRATOR", "Terrace ho, greenhouse ya khet… yeh hai jungle ka naya kanoon."),
+import json
+SR = 48000
+# ---- real VO timeline (ElevenLabs files, segmented by vo_split.py) --------------------------
+VO_FILES = {"NARRATOR": "vo/file_bunty_voice.mp3", "MEERA": "vo/file_zara_voice.mp3",
+            "RAJU KAKA": "vo/file_raju_voice.mp3"}
+SEG = json.load(open(os.path.join(HERE, "vo", "segments.json")))
+# reading order: (speaker, line index in that file, caption text in Roman Hinglish, gap before)
+ORDER = [
+    ("NARRATOR", 0, "Shhh… dekhiye. Yeh hai whitefly.", 0.15),
+    ("NARRATOR", 1, "Chhota sa… par poore plant ka ras choos leta hai.", 0.2),
+    ("MEERA", 0, "Arre! Mere tamatar ke patte phir se peele!", 0.25),
+    ("MEERA", 1, "Itne saare keede… kahan se aa gaye?!", 0.2),
+    ("NARRATOR", 2, "Par jungle ka ek niyam hai… kuch rang, inse bardasht nahi hote.", 0.25),
+    ("NARRATOR", 3, "Peela. Aur neela.", 0.2),
+    ("MEERA", 2, "Bas film utaaro, aur plant ke thoda upar latka do.", 0.3),
+    ("NARRATOR", 4, "Aur phir… shikari khud shikaar ban jaata hai.", 0.2),
+    ("RAJU KAKA", 0, "Humare khet mein bhi lagaye… thrips, aphids, sab chipak gaye!", 0.2),
+    ("RAJU KAKA", 1, "15 by 20 ka size, peela bhi, neela bhi…", 0.15),
+    ("RAJU KAKA", 2, "buildingshop.in se mangaya tha!", 0.15),
+    ("NARRATOR", 5, "Dono taraf sticky. Waterproof. Non-toxic. Indoor ho ya outdoor.", 0.2),
+    ("NARRATOR", 6, "Terrace ho, greenhouse ya khet… yeh hai jungle ka naya kanoon.", 0.2),
 ]
-DUR = 38.6
-SCENES = [  # (start, end, fn-name)
-    (0.0, 3.5, "macro_fly"), (3.5, 7.5, "leaf_reveal"), (7.5, 10.4, "meera_worried"),
-    (10.4, 16.1, "species_entrance"), (16.1, 19.5, "meera_hangs"), (19.5, 23.4, "the_hunt"),
-    (23.4, 27.6, "farm"), (27.6, 32.0, "field_notes"), (32.0, 36.6, "finale"),
-    (36.6, DUR, "stuck_stamp"),
+TAIL = 2.0  # STUCK stamp + cut to black after the last line
+
+LINES, CLIPS, WORDS = [], [], []  # LINES: (start,end,speaker,text); CLIPS: (global_start, speaker, src_a, src_b)
+_t = 0.0
+for sp, idx, txt, gap in ORDER:
+    seg = SEG[sp][idx]
+    _t += gap
+    a0, b0 = seg["start"], seg["end"]
+    g0 = _t
+    LINES.append((g0, g0 + (b0 - a0), sp, txt))
+    CLIPS.append((g0, sp, a0 - 0.03, b0 + 0.06))
+    # word timings: spread caption words over the voiced runs by character share
+    rr = [(ra - a0 + g0, rb - a0 + g0) for ra, rb in seg["runs"]]
+    tot = sum(rb - ra for ra, rb in rr)
+    words = txt.split()
+    lens = [max(1, len(w.strip(".,!?…"))) for w in words]
+    acc, wl = 0.0, []
+
+    def at(frac):
+        s = frac * tot
+        for ra, rb in rr:
+            if s <= rb - ra:
+                return ra + s
+            s -= rb - ra
+        return rr[-1][1]
+    for w, L in zip(words, lens):
+        f0 = acc / sum(lens)
+        acc += L
+        wl.append((at(f0), at(acc / sum(lens)), w))
+    WORDS.append(wl)
+    _t = g0 + (b0 - a0)
+DUR = round(_t + TAIL, 2)
+
+
+def L(i):  # start of line i
+    return LINES[i][0]
+
+
+def LE(i):
+    return LINES[i][1]
+
+
+def WT(i, j):  # start of word j in line i
+    return WORDS[i][j][0]
+
+
+STUCK_T = LE(12) + 0.25
+SCENES = [
+    (0.0, L(1), "macro_fly"), (L(1), L(2) - 0.05, "leaf_reveal"), (L(2) - 0.05, L(4) - 0.05, "meera_worried"),
+    (L(4) - 0.05, L(6) - 0.05, "species_entrance"), (L(6) - 0.05, L(7) - 0.05, "meera_hangs"),
+    (L(7) - 0.05, L(8) - 0.05, "the_hunt"), (L(8) - 0.05, L(11) - 0.05, "farm"),
+    (L(11) - 0.05, L(12) - 0.05, "field_notes"), (L(12) - 0.05, STUCK_T, "finale"), (STUCK_T, DUR, "stuck_stamp"),
 ]
+
+
+def RUN(i, k):  # global start of voiced run k in reading-order line i
+    sp, idx = ORDER[i][0], ORDER[i][1]
+    seg = SEG[sp][idx]
+    return L(i) + seg["runs"][k][0] - seg["start"]
+
+
+CUE = dict(peela=RUN(5, 0), neela=RUN(5, 1), hunt=L(7), r2=L(9), r3=L(10),
+           notes=[RUN(11, 0) + 0.45, RUN(11, 2), RUN(11, 3), RUN(11, 4)], black=STUCK_T + 1.35)
 
 # ------------------------------------------------------------------ colour / paint helpers
 YEL = (255, 214, 0)
@@ -633,12 +700,16 @@ def draw_person(cv, x, y, u, t, P, arm_r=(0.25, 0.2), arm_l=(-0.25, -0.2), talk=
     return hands
 
 
+_ENV = {}
+
+
 def talk_curve(t, speaker):
-    """Mouth-open 0..1 while this speaker's line plays (replace with VO amplitude once mp3s exist)."""
-    for a, b, sp, _ in LINES:
-        if sp == speaker and a <= t <= b:
-            return 0.5 + 0.5 * abs(math.sin(t * 13.0)) * abs(math.sin(t * 5.1 + 1))
-    return 0.0
+    """Mouth-open 0..1 from the speaker's own VO amplitude (computed in build_vo)."""
+    e = _ENV.get(speaker)
+    if e is None:
+        return 0.0
+    i = int(t * 100)
+    return float(e[i]) if 0 <= i < len(e) else 0.0
 
 
 # ------------------------------------------------------------------ backgrounds (semi-real plates)
@@ -751,19 +822,14 @@ SPEAKER_COL = {"NARRATOR": (240, 236, 220), "MEERA": hexc("#F06292"), "RAJU KAKA
 
 
 def captions(cv, t):
-    for a, b, sp, s in LINES:
-        if a - 0.1 <= t <= b + 0.25:
-            words = s.split()
-            n = len(words)
-            # word timings: proportional to length (replace with whisper timings)
-            lens = [len(w) + 2 for w in words]
-            tot = sum(lens)
-            cum = np.cumsum([0] + lens) / tot
-            cur = int(np.searchsorted(cum, clamp((t - a) / (b - a)), side="right") - 1)
-            fade = ease((t - (a - 0.1)) / 0.15) * (1 - ease((t - b - 0.1) / 0.15))
+    for li, (a, b, sp, s) in enumerate(LINES):
+        if a - 0.1 <= t <= b + 0.2:
+            wl = WORDS[li]
+            words = [w for _, _, w in wl]
+            cur = max([k for k, (wa, wb, _) in enumerate(wl) if t >= wa - 0.02] or [0])
+            fade = ease((t - (a - 0.1)) / 0.12) * (1 - ease((t - b - 0.08) / 0.12))
             size = 58
             f = font("sans", size)
-            # wrap to <= 900 px
             lines, cur_line = [], []
             for i, w in enumerate(words):
                 trial = " ".join([words[j] for j in cur_line] + [w])
@@ -773,24 +839,22 @@ def captions(cv, t):
                 cur_line.append(i)
             lines.append(cur_line)
             y0 = 1480 - (len(lines) - 1) * 36
-            # speaker tag
             tc = SPEAKER_COL[sp]
             tf = font("mono", 26)
             tw = tf.measureText(sp)
-            cv.drawRRect(rrect(W / 2 - tw / 2 - 18, y0 - 112, tw + 36, 44, 22), fill(tc, 235 * fade))
-            cv.drawString(sp, W / 2 - tw / 2, y0 - 80, tf, fill((25, 25, 25), 255 * fade))
-            for li, idxs in enumerate(lines):
+            cv.drawRRect(rrect(W_ / 2 - tw / 2 - 18, y0 - 112, tw + 36, 44, 22), fill(tc, 235 * fade))
+            cv.drawString(sp, W_ / 2 - tw / 2, y0 - 80, tf, fill((25, 25, 25), 255 * fade))
+            for ln, idxs in enumerate(lines):
                 lw = f.measureText(" ".join(words[i] for i in idxs))
-                x = W / 2 - lw / 2
-                y = y0 + li * 76
+                x = W_ / 2 - lw / 2
+                y = y0 + ln * 76
                 for i in idxs:
                     w = words[i]
                     ww = f.measureText(w)
                     on = i == cur
                     if on:
                         cv.drawRRect(rrect(x - 8, y - 52, ww + 16, 68, 12), fill(YEL, 245 * fade))
-                    sp_ = fill((0, 0, 0), 200 * fade, blur=5)
-                    cv.drawString(w, x + 2, y + 3, f, sp_)
+                    cv.drawString(w, x + 2, y + 3, f, fill((0, 0, 0), 200 * fade, blur=5))
                     cv.drawString(w, x, y, f, fill((20, 20, 20) if on else (255, 255, 255), 255 * fade))
                     x += ww + f.measureText(" ")
             return
@@ -842,11 +906,11 @@ def sc_leaf_reveal(cv, lt, t):
 
 
 def sc_meera_worried(cv, lt, t):
-    cam = 1.0 + 0.06 * ease(lt / 3)
+    cam = 1.05 + 0.05 * ease(lt / 3)
     cv.save()
     cv.translate(W / 2, H * 0.6)
     cv.scale(cam, cam)
-    cv.translate(-W / 2 - 20 * lt, -H * 0.6)
+    cv.translate(-W / 2 - 10 * min(lt, 4.0), -H * 0.6)
     blur_layer(cv, 6)
     terrace_plate(cv, t, sick=0.9)
     cv.restore()
@@ -862,7 +926,7 @@ def sc_meera_worried(cv, lt, t):
 def sc_species(cv, lt, t):
     # dark undergrowth, god rays, the two new species descend
     cv.drawRect(skia.Rect(0, 0, W, H), lin((0, 0), (0, H), [(16, 40, 26), (5, 14, 9)]))
-    god_rays(cv, t, (W * 0.5, -200), a=50 if lt > 3.4 else 22)
+    god_rays(cv, t, (W * 0.5, -200), a=50 if t > CUE['peela'] else 22)
     blur_layer(cv, 14)
     rnd = random.Random(8)
     for i in range(14):
@@ -875,25 +939,25 @@ def sc_species(cv, lt, t):
         x = rnd.uniform(0, W) + math.sin(t * 0.5 + i) * 30
         y = (rnd.uniform(0, H) - t * 25 * rnd.uniform(0.5, 1.5)) % H
         cv.drawCircle(x, y, rnd.uniform(1.5, 4), fill((255, 245, 210), 120))
-    # entrance on "Peela" (14.0) and "neela" (~15.1)
-    for k, (col, tin, x) in enumerate([(YEL, 14.0, 380), (BLU, 15.05, 720)]):
+    # entrance exactly on the words "Peela" and "neela"
+    for k, (col, tin, x) in enumerate([(YEL, CUE["peela"], 380), (BLU, CUE["neela"], 720)]):
         p = bout((t - tin) / 0.9)
         if t < tin - 0.05:
             continue
         y = lerp(-500, 900, p) + math.sin(t * 1.5 + k) * 10
         draw_trap(cv, x, y, 310, col, glow=0.8 * ease((t - tin) / 0.6), rot=(1 - p) * 0.4 * (1 if k else -1),
                   hang=True, hang_len=900)
-    if t > 15.4:
-        lower_third(cv, t - 15.4, 0.0, "STICKY TRAP", "yellow & blue  ·  15 × 20 cm  ·  double-sided", y=1250)
+    if t > CUE["neela"] + 0.4:
+        lower_third(cv, t - CUE["neela"] - 0.4, 0.0, "STICKY TRAP", "yellow & blue  ·  15 × 20 cm  ·  double-sided", y=1250)
     swarm(cv, t, 10, (100, 500, 1000, 1200), 70, 12)
 
 
 def sc_meera_hangs(cv, lt, t):
-    cam = 1.08 - 0.06 * ease(lt / 3.4)
+    cam = 1.1 - 0.05 * ease(lt / 3.4)
     cv.save()
     cv.translate(W / 2, H / 2)
     cv.scale(cam, cam)
-    cv.translate(-W / 2 + 10 * lt, -H / 2)
+    cv.translate(-W / 2 + 6 * min(lt, 3.5), -H / 2)
     blur_layer(cv, 5)
     terrace_plate(cv, t, plants=False)
     cv.restore()
@@ -920,7 +984,7 @@ def sc_meera_hangs(cv, lt, t):
 HUNT = []
 _r = random.Random(77)
 for i in range(30):
-    HUNT.append(dict(t0=19.6 + i * 0.11 + _r.random() * 0.2, dur=1.0 + _r.random() * 0.7,
+    HUNT.append(dict(t0=CUE['hunt'] + 0.05 + i * 0.09 + _r.random() * 0.2, dur=1.0 + _r.random() * 0.7,
                      sx=_r.choice([-60, W + 60]), sy=_r.uniform(250, 1700),
                      ex=_r.uniform(330, 750), ey=_r.uniform(560, 1250),
                      kind=_r.choice(["whitefly", "whitefly", "gnat", "aphid"])))
@@ -952,17 +1016,17 @@ def sc_hunt(cv, lt, t):
     # freeze label on first stick
     if len(stuck) > 0:
         first = min(HUNT, key=lambda b: b["t0"] + b["dur"])
-        k = ease((t - first["t0"] - first["dur"]) / 0.3) * (1 - ease((lt - 3.4) / 0.3))
+        k = ease((t - first["t0"] - first["dur"]) / 0.3) * (1 - ease((t - (L(8) - 0.35)) / 0.3))
         if k > 0:
             text(cv, f"CAUGHT: {len(stuck)}", 70, 330, "mono", 44, (255, 255, 255), 255 * k, shadow=6)
 
 
-def sc_farm(cv, lt, t):
-    cam = 1.0 + 0.07 * ease(lt / 4.1)
+def _farm_wide(cv, lt, t, parcel=False):
+    cam = 1.04 + 0.07 * ease(lt / 4.1)
     cv.save()
     cv.translate(W / 2, H * 0.5)
     cv.scale(cam, cam)
-    cv.translate(-W / 2 - 25 * lt, -H * 0.5)
+    cv.translate(-W / 2 - 18 * min(lt, 4.0), -H * 0.5)
     sky(cv, (250, 175, 95), (255, 225, 160))
     cv.drawCircle(820, 620, 300, rad((820, 620), 300, [((255, 250, 220), 255), ((255, 230, 160), 0)]))
     blur_layer(cv, 8)
@@ -990,12 +1054,62 @@ def sc_farm(cv, lt, t):
     # golden haze
     cv.drawRect(skia.Rect(0, 0, W, H), lin((0, 600), (0, 1100), [((255, 210, 140), 90), ((255, 210, 140), 0)]))
     cv.restore()
-    draw_person(cv, 300, 1990, 240, t, RAJU, arm_l=(1.35 + 0.08 * math.sin(lt * 2), 0.5), arm_r=(0.3, 0.2), talk=talk_curve(t, "RAJU KAKA"),
-                brow=0.2, look=0.9, curl_l=0.3)
+    if not parcel:
+        draw_person(cv, 300, 1990, 240, t, RAJU, arm_l=(1.35 + 0.08 * math.sin(lt * 2), 0.5), arm_r=(0.3, 0.2),
+                    talk=talk_curve(t, "RAJU KAKA"), brow=0.2, look=0.9, curl_l=0.3)
+    else:  # proud, holding up the plain brown parcel it came in
+        hands = draw_person(cv, 420, 1990, 250, t, RAJU, arm_l=(0.35, 1.1), arm_r=(0.35, 1.1),
+                            talk=talk_curve(t, "RAJU KAKA"), brow=-0.3, look=0.3, curl_l=0.6, curl_r=0.6)
+        bx = (hands[1][0] + hands[-1][0]) / 2
+        by = (hands[1][1] + hands[-1][1]) / 2 + 20
+        draw_trap(cv, bx + 45, by - 95, 110, YEL, rot=0.18)
+        draw_trap(cv, bx - 45, by - 85, 110, BLU, rot=-0.15)
+        cv.drawRRect(rrect(bx - 150, by - 70, 300, 170, 10), lin((0, by - 70), (0, by + 100), [(205, 160, 105), (165, 120, 72)]))
+        cv.drawRect(skia.Rect(bx - 150, by - 10, bx + 150, by + 8), fill((225, 200, 150)))
     god_rays(cv, t, (820, 620), cols=(255, 230, 170), a=24, n=9, spread=6.0, length=1400)
 
 
-FIELD_NOTES = [("double-sided", 27.9), ("waterproof", 28.9), ("non-toxic", 29.7), ("indoor + outdoor", 30.5)]
+def _farm_insert(cv, lt, t):
+    # close insert: two cards on a stake in the crop row, real size callout
+    cam = 1.12 - 0.08 * ease(lt / 3)
+    cv.save()
+    cv.translate(W / 2, H / 2)
+    cv.scale(cam, cam)
+    cv.translate(-W / 2, -H / 2)
+    sky(cv, (250, 185, 110), (240, 210, 150))
+    blur_layer(cv, 16)
+    cv.drawRect(skia.Rect(0, 900, W, H), fill((110, 80, 45)))
+    rnd = random.Random(14)
+    for i in range(16):
+        draw_leaf(cv, rnd.uniform(-100, W), rnd.uniform(1000, H), rnd.uniform(250, 450), rnd.uniform(-2.6, -0.6),
+                  base=(60, 120, 50), veins=False)
+    cv.restore()
+    for k, (x, col, tin) in enumerate([(330, YEL, 0.0), (750, BLU, 0.0)]):
+        cv.drawRRect(rrect(x - 9, 760, 18, 1200, 8), lin((x - 9, 0), (x + 9, 0), [(205, 170, 100), (150, 115, 60)]))
+        draw_trap(cv, x, 700, 330, col, bugs=18 + 6 * k, seed=90 + k, rot=math.sin(t * 1.5 + k) * 0.02)
+    a = 255 * ease((lt - 0.3) / 0.4)
+    sp = stroke((255, 255, 255), 5, a)
+    cv.drawLine(165, 950, 495, 950, sp)
+    cv.drawLine(120, 480, 120, 920, sp)
+    text(cv, "15 cm", 330, 1005, "serif", 40, (255, 255, 255), a, anchor="c", shadow=6)
+    cv.save()
+    cv.translate(95, 700)
+    cv.rotate(-90)
+    text(cv, "20 cm", 0, 0, "serif", 40, (255, 255, 255), a, anchor="c", shadow=6)
+    cv.restore()
+    cv.restore()
+
+
+def sc_farm(cv, lt, t):
+    if t < CUE["r2"] - 0.05:
+        _farm_wide(cv, lt, t)
+    elif t < CUE["r3"] - 0.05:
+        _farm_insert(cv, t - CUE["r2"], t)
+    else:
+        _farm_wide(cv, t - CUE["r3"], t, parcel=True)
+
+
+FIELD_NOTES = list(zip(["double-sided", "waterproof", "non-toxic", "indoor + outdoor"], CUE["notes"]))
 
 
 def sc_field_notes(cv, lt, t):
@@ -1128,12 +1242,12 @@ def render_frame(t, arr=None):
             if i > 0 and k > 0 and name != "stuck_stamp":
                 cv.drawRect(skia.Rect(0, 0, W, H), fill((255, 255, 255), 70 * k))
             break
-    black_end = t >= 36.6 + 1.35
+    black_end = t >= CUE['black']
     if not black_end:
         film_finish(cv, t)
         letterbox(cv)
         captions(cv, t)
-        if t < 36.6:
+        if t < STUCK_T:
             corner_mark(cv)
     return arr
 
@@ -1173,14 +1287,14 @@ def music():
     def note(midi):
         return 440 * 2 ** ((midi - 69) / 12)
 
-    # tension: low drone + ticking pizz (0–14)
-    pad(note(38), 0, 14.2, 0.18)
-    pad(note(45), 0, 14.2, 0.08)
-    for k, s in enumerate(np.arange(0.4, 13.8, 0.62)):
+    rv = CUE["peela"]
+    pad(note(38), 0, rv + 0.2, 0.18)
+    pad(note(45), 0, rv + 0.2, 0.08)
+    for k, s in enumerate(np.arange(0.4, rv - 0.2, 0.62)):
         pluck(note([62, 65, 62, 69][k % 4]), s, 0.10, 0.5)
     # reveal swell (14–) D major warmth
     chords = [[50, 57, 62, 66], [47, 54, 59, 62], [43, 50, 55, 59], [45, 52, 57, 61]]
-    t0 = 14.0
+    t0 = rv
     while t0 < DUR - 1.5:
         for c in chords:
             if t0 >= DUR - 1.5:
@@ -1191,17 +1305,16 @@ def music():
                 pluck(note(m + 12), t0 + k * 0.6, 0.07, 0.9)
             t0 += 2.4
     # hits
-    for th in (14.0, 15.05, 37.0):
+    for th in (CUE['peela'], CUE['neela'], STUCK_T + 0.35):
         i0 = int(th * SR)
-        L = int(1.5 * SR)
+        L = min(int(1.5 * SR), n - i0)
         x = np.arange(L) / SR
         out[i0:i0 + L] += 0.35 * np.sin(2 * np.pi * 55 * x) * np.exp(-x * 3)
     # simple reverb
     for d, g in ((0.071, 0.35), (0.113, 0.28), (0.173, 0.2), (0.257, 0.14)):
         k = int(d * SR)
         out[k:] += g * out[:-k]
-    # cut to black: silence after 37.95
-    out[int(37.95 * SR):] *= 0.0
+    out[int(CUE['black'] * SR):] *= 0.0
     out[:int(0.3 * SR)] *= np.linspace(0, 1, int(0.3 * SR))
     out /= np.max(np.abs(out)) + 1e-9
     out *= 10 ** (-6 / 20)
@@ -1219,17 +1332,67 @@ def write_wav(path, x):
         w.writeframes(st.tobytes())
 
 
+# ------------------------------------------------------------------ VO track (real ElevenLabs files)
+def _load(p):
+    raw = subprocess.run(["ffmpeg", "-loglevel", "error", "-i", os.path.join(HERE, p), "-ac", "1", "-ar", str(SR),
+                          "-f", "s16le", "-"], capture_output=True, check=True).stdout
+    return np.frombuffer(raw, np.int16).astype(np.float32) / 32768
+
+
+def build_vo():
+    n = int(DUR * SR)
+    vo = np.zeros(n, np.float32)
+    per = {sp: np.zeros(n, np.float32) for sp in VO_FILES}
+    src = {sp: _load(p) for sp, p in VO_FILES.items()}
+    for g0, sp, a, b in CLIPS:
+        clip = src[sp][max(0, int(a * SR)):int(b * SR)].copy()
+        f = int(0.01 * SR)
+        clip[:f] *= np.linspace(0, 1, f)
+        clip[-f:] *= np.linspace(1, 0, f)
+        i0 = int((g0 - 0.03) * SR)
+        L = min(len(clip), n - i0)
+        vo[i0:i0 + L] += clip[:L]
+        per[sp][i0:i0 + L] += clip[:L]
+    for sp, x in per.items():  # 100 Hz mouth envelope
+        h = SR // 100
+        m = len(x) // h
+        e = np.sqrt(np.mean(x[:m * h].reshape(m, h) ** 2, 1))
+        e = np.convolve(e, np.ones(4) / 4, "same")
+        e = np.clip((e / (np.percentile(e[e > 1e-4], 95) + 1e-9)) ** 0.8, 0, 1) if np.any(e > 1e-4) else e
+        _ENV[sp] = e
+    return vo
+
+
+def mix_audio(music_, vo):
+    h = SR // 100
+    m = len(vo) // h
+    e = np.sqrt(np.mean(vo[:m * h].reshape(m, h) ** 2, 1))
+    e = np.convolve((e > 0.01).astype(float), np.ones(25) / 25, "same")  # 250 ms smoothing
+    duck = 1 - 0.6 * np.repeat(e, h)
+    duck = np.pad(duck, (0, len(vo) - len(duck)), constant_values=1)
+    vo_n = vo / (np.max(np.abs(vo)) + 1e-9) * 10 ** (-1.5 / 20)
+    out = music_[:len(vo)] * 0.55 * duck + vo_n
+    return out / max(1.0, np.max(np.abs(out)) / 10 ** (-1 / 20))
+
+
+VO = build_vo()
+
+
 def main():
     os.makedirs(OUT, exist_ok=True)
     if "--stills" in sys.argv:
-        ts = [0.8, 2.5, 5.5, 8.8, 12.0, 15.8, 17.2, 18.8, 20.6, 22.8, 25.0, 30.9, 33.8, 37.2, 38.3]
+        ts = [round(t, 2) for t in [0.8, (L(1) + L(2)) / 2, L(2) + 1.0, L(3) + 1.0, L(4) + 1.5, CUE["neela"] + 0.9,
+              L(6) + 0.6, L(6) + 2.4, L(7) + 0.8, L(8) - 0.4, L(8) + 1.5, L(9) + 1.2, L(10) + 0.7, L(11) + 3.0,
+              L(12) + 1.5, STUCK_T + 0.9, DUR - 0.3]]
         for t in ts:
             arr = render_frame(t)
             skia.Image.fromarray(arr, colorType=skia.kRGBA_8888_ColorType).save(
                 os.path.join(OUT, f"still_{t:05.2f}.png"), skia.kPNG)
         return
-    wav = os.path.join(OUT, "planet_gamla_music.wav")
-    write_wav(wav, music())
+    wav = os.path.join(OUT, "planet_gamla_mix.wav")
+    m = music()
+    write_wav(os.path.join(OUT, "planet_gamla_music.wav"), m)
+    write_wav(wav, mix_audio(m, VO))
     raw = os.path.join(OUT, "planet_gamla_master.mp4")
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{W}x{H}",
            "-r", str(FPS), "-i", "-", "-i", wav, "-c:v", "libx264", "-preset", "medium", "-crf", "17",

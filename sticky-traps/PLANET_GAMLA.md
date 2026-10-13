@@ -4,7 +4,12 @@
 - Amazon: B0GXFRMYRW
 - Store: buildingshop.in/products/buildingshop-sticky-traps-for-plants-yellow-and-blue-15x20cm-double-sided-waterproof-non-toxic-insect-catcher-for-indoor-and-outdoor-use
 
-**Draft render:** `out/planet_gamla_master.mp4` (1080×1920, 38.6 s, 23 MB, upload-sized). It has music only; captions are timed to estimated line lengths until the real VO arrives.
+**Final render:** `out/planet_gamla_master.mp4` (1080×1920, 43.5 s), built on Sagar's ElevenLabs VO:
+- `vo/file_bunty_voice.mp3` → NARRATOR (7 lines)
+- `vo/file_zara_voice.mp3` → MEERA (3 lines)
+- `vo/file_raju_voice.mp3` → RAJU KAKA (3 lines)
+
+The files are split into lines by `vo_split.py` (pause detection, with alignment for the narrator). Captions, lip-sync, card drops and feature ticks hang off the real voice timings. Music ducks under the voices. Whisper's model hosts are blocked in this sandbox, so word highlights are spread across the voiced parts of each line by syllable share instead of exact word timestamps.
 
 ## Director brief
 | | |
