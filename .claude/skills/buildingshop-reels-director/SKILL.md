@@ -85,6 +85,11 @@ Read these before starting:
 - `<break time="1.0s" />` between lines, all on one block per voice
 - Send this and STOP. Wait for his edits and the mp3s.
 
+## Amazon 16:9 cut (when Sagar asks for the "Amazon version")
+- Reuse the reel's VO and scenes; compose 1920×1080 with the story panel on the left + word-synced motion graphics on the right (see `sticky-traps/amazon16x9.py`).
+- **Never** show or say a website/URL or anything that sends buyers off Amazon. Cut those VO lines even if the reel has them, and tell Sagar.
+- No letterbox/black bars, no black frames at start/end, product visible in the first 1–2 s, no price/discount/CTA/reviews/"best", claims only from the listing, captions always on, ≤45 s, −14 LUFS.
+
 ## Director roster
 | # | Director | Emotion / genre | Signature look & motion | Voice setup | Typical ending |
 |---|---|---|---|---|---|

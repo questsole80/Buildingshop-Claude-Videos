@@ -101,3 +101,17 @@ https://buildingshop.in
 - **Runway:** 4 photoreal plates were generated (terrace, polyhouse, farm, macro; 28 credits used, 97 left), but the files can't be downloaded here. Download them from your Runway library and upload them; `render.py` (the 16:9 Amazon cut, not rendered yet) picks them up automatically from `plates/`. Video generation needs a paid Runway plan.
 - Pest names (whitefly, thrips, aphids) are standard for yellow/blue traps but aren't in the product title. Keep them only if the listing mentions them.
 - Don't hang traps on flowering plants that bees visit; worth a line in the listing.
+
+## 16:9 Amazon cut: `out/buildingshop_sticky_traps_amazon_16x9.mp4`
+1920×1080, 30 fps, H.264 High + AAC 48 kHz, loudness-normalised to −14 LUFS, ~42.4 s (under 45 s).
+- **Layout:** the documentary story plays in a rounded panel on the left over a blurred copy of itself. The right column carries word-synced motion graphics: the WHITEFLY kinetic title and pest chips, "Your plants, under attack", the product reveal (yellow/blue swatches pop on "Peela"/"neela"; a 15×20 cm diagram draws itself), numbered how-to steps, a live CAUGHT counter, Balcony / Terrace / Greenhouse / Farm tiles, a 2×2 feature grid with tick sweeps, and a product end card with a light sweep.
+- **Captions:** always on, for muted autoplay.
+- **Sound:** a whoosh before each section and pops on chips, mixed under the voices and music.
+- **Amazon compliance:**
+  - No URL or off-Amazon mention anywhere. Raju's "buildingshop.in se mangaya tha" line is cut, and the corner URL and black end card are removed.
+  - No letterbox bars and no black frames.
+  - The product is in frame from the first second (a defocused card behind the leaf).
+  - No price, CTA, reviews or superlatives.
+  - Claims come only from the product title: yellow & blue, 15×20 cm, double-sided, waterproof, non-toxic, indoor & outdoor.
+  - "Bright colours attract flying pests" describes how sticky traps work.
+- **Upload placement:** Sponsored Brands video, or a listing video ("Upload & manage videos" in Seller Central).

@@ -42,11 +42,18 @@ ORDER = [
     ("NARRATOR", 6, "Terrace ho, greenhouse ya khet… yeh hai jungle ka naya kanoon.", 0.2),
 ]
 TAIL = 2.0  # STUCK stamp + cut to black after the last line
+if os.environ.get("AMAZON") == "1":
+    TAIL = 2.6  # hold the product end card instead of cutting to black
 
 LINES, CLIPS, WORDS = [], [], []  # LINES: (start,end,speaker,text); CLIPS: (global_start, speaker, src_a, src_b)
 _t = 0.0
+AMAZON = os.environ.get("AMAZON") == "1"  # Amazon cut: no URLs / off-Amazon mentions, no black frames
 for sp, idx, txt, gap in ORDER:
     seg = SEG[sp][idx]
+    if AMAZON and sp == "RAJU KAKA" and idx == 2:  # "buildingshop.in se mangaya tha" -> dropped for Amazon
+        LINES.append((_t, _t, sp, ""))
+        WORDS.append([])
+        continue
     _t += gap
     a0, b0 = seg["start"], seg["end"]
     g0 = _t
@@ -104,6 +111,9 @@ def RUN(i, k):  # global start of voiced run k in reading-order line i
 
 CUE = dict(peela=RUN(5, 0), neela=RUN(5, 1), hunt=L(7), r2=L(9), r3=L(10),
            notes=[RUN(11, 0) + 0.45, RUN(11, 2), RUN(11, 3), RUN(11, 4)], black=STUCK_T + 1.35)
+if AMAZON:
+    CUE["black"] = DUR + 10
+    CUE["r3"] = DUR + 10
 
 # ------------------------------------------------------------------ colour / paint helpers
 YEL = (255, 214, 0)
@@ -823,7 +833,7 @@ SPEAKER_COL = {"NARRATOR": (240, 236, 220), "MEERA": hexc("#F06292"), "RAJU KAKA
 
 def captions(cv, t):
     for li, (a, b, sp, s) in enumerate(LINES):
-        if a - 0.1 <= t <= b + 0.2:
+        if a - 0.1 <= t <= b + 0.2 and WORDS[li]:
             wl = WORDS[li]
             words = [w for _, _, w in wl]
             cur = max([k for k, (wa, wb, _) in enumerate(wl) if t >= wa - 0.02] or [0])
@@ -876,6 +886,10 @@ def sc_macro_fly(cv, lt, t):
     blur_layer(cv, 18)
     bokeh(cv, t, 4, 26, [(140, 200, 90), (230, 240, 160), (90, 150, 70)], 40, 120, 90)
     cv.restore()
+    if AMAZON:  # product present from frame 1: a card hanging, defocused, behind the leaf
+        blur_layer(cv, 10)
+        draw_trap(cv, 860, 560, 260, YEL, hang=True, hang_len=600, glow=0.3)
+        cv.restore()
     draw_leaf(cv, -200, 1250, 1700, -0.45, base=(62, 140, 58), sick=0.35, seed=4)
     # the specimen
     fx = 560 + math.sin(lt * 1.3) * 10
@@ -1195,7 +1209,7 @@ def sc_finale(cv, lt, t):
 
 def sc_stuck(cv, lt, t):
     # specimen card: the whitefly, stamped STUCK, then cut to black
-    if lt > 1.35:
+    if lt > 1.35 and not AMAZON:
         cv.drawRect(skia.Rect(0, 0, W, H), fill((0, 0, 0)))
         a = ease((lt - 1.5) / 0.3) * 255
         text(cv, "buildingshop.in", W / 2, H / 2, "serif", 44, (235, 235, 225), a, anchor="c")
@@ -1228,7 +1242,7 @@ SCENE_FN = dict(macro_fly=sc_macro_fly, leaf_reveal=sc_leaf_reveal, meera_worrie
                 field_notes=sc_field_notes, finale=sc_finale, stuck_stamp=sc_stuck)
 
 
-def render_frame(t, arr=None):
+def render_frame(t, arr=None, overlays=True):
     if arr is None:
         arr = np.zeros((H, W, 4), np.uint8)
     surf = skia.Surface(arr)
@@ -1245,6 +1259,8 @@ def render_frame(t, arr=None):
     black_end = t >= CUE['black']
     if not black_end:
         film_finish(cv, t)
+        if not overlays:
+            return arr
         letterbox(cv)
         captions(cv, t)
         if t < STUCK_T:
@@ -1315,6 +1331,9 @@ def music():
         k = int(d * SR)
         out[k:] += g * out[:-k]
     out[int(CUE['black'] * SR):] *= 0.0
+    if AMAZON:  # musical fade on the end card instead of a hard cut
+        fl = int(1.6 * SR)
+        out[-fl:] *= np.linspace(1, 0, fl) ** 1.5
     out[:int(0.3 * SR)] *= np.linspace(0, 1, int(0.3 * SR))
     out /= np.max(np.abs(out)) + 1e-9
     out *= 10 ** (-6 / 20)
