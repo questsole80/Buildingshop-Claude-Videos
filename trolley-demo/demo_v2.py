@@ -16,6 +16,7 @@ from demo16x9 import (W, H, FPS, SR, C, fill, stroke, clamp, ease, eoe, bout, le
                       SAMP, YEL, WHITE)
 
 HERE = D.HERE
+WEB = os.environ.get("WEB") == "1"  # website version: corner URL + shop-now end card
 OUT = D.OUT
 BPM = 123
 BEAT = 60 / BPM
@@ -512,6 +513,32 @@ def s_end(cv, t, lt, dur):
     light_leak(cv, t, t0 + 0.1, 1.2, (90, 170, 255))
 
 
+def web_overlays(cv, t):
+    # corner mark (top-right) for the whole video
+    f = font("bold", 30)
+    s = "buildingshop.in"
+    w = f.measureText(s)
+    x, y = W - 60 - w - 40, 48
+    cv.drawRRect(rrect(x, y, w + 40, 54, 27), fill((0, 0, 0), 110, blur=0.5))
+    cv.drawCircle(x + 22, y + 27, 7, fill(YEL))
+    cv.drawString(s, x + 36, y + 38, f, fill(WHITE, 235))
+    # shop-now button on the end card
+    t0 = T["end"][0] + 0.9 + BEAT * 3
+    k = (t - t0) / 0.45
+    if k > 0:
+        sc = bout(k) * (1 + 0.03 * math.sin((t - t0) * 6))
+        lab = "Shop now at buildingshop.in"
+        fb = font("bold", 40)
+        bw = fb.measureText(lab) + 90
+        cv.save()
+        cv.translate(min(1180 + bw / 2, W - 70 - bw / 2), 930)
+        cv.scale(sc, sc)
+        cv.drawRRect(rrect(-bw / 2 + 4, -40, bw, 84, 42), fill((0, 0, 0), 120, blur=12))
+        cv.drawRRect(rrect(-bw / 2, -46, bw, 84, 42), fill(YEL))
+        cv.drawString(lab, -bw / 2 + 45, 10, fb, fill(NAVY))
+        cv.restore()
+
+
 SCENES = [("problem", s_problem), ("turn", s_turn), ("reveal", s_reveal), ("hero", s_hero), ("load", s_load),
           ("push", s_push), ("fold", s_fold), ("uses", s_uses), ("end", s_end)]
 WHIPS = {"load", "push", "fold", "uses", "end"}  # scenes entered with a whip pan
@@ -538,6 +565,8 @@ def render_frame(t, arr):
                 cv.drawRect(skia.Rect(0, 0, W, H), fill(WHITE, 40 * (1 - ok)))
             break
     D.film(cv, t)
+    if WEB:
+        web_overlays(cv, t)
     if t < 0.2:
         cv.drawRect(skia.Rect(0, 0, W, H), fill((0, 0, 0), 255 * (1 - t / 0.2)))
     if t > DUR - 0.7:
@@ -764,7 +793,7 @@ def main():
             skia.Image.fromarray(arr, colorType=skia.kRGBA_8888_ColorType).save(os.path.join(OUT, f"v2_{t:05.2f}.png"), skia.kPNG)
         return
     vo = sys.argv[sys.argv.index("--vo") + 1] if "--vo" in sys.argv else None
-    tag = "_vo" if vo else ""
+    tag = ("_vo" if vo else "") + ("_web" if WEB else "")
     wav = os.path.join(OUT, f"trolley_v2{tag}.wav")
     build_audio(wav, vo)
     dst = os.path.join(OUT, f"buildingshop_folding_trolley_amazon_16x9_v2{tag}.mp4")
